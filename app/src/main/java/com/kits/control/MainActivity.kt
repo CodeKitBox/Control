@@ -17,8 +17,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        findViewById<Button>(R.id.btnSysSimple).setOnClickListener {
+            startActivity(Intent(this,TestScrollViewActivity::class.java))
+        }
         findViewById<Button>(R.id.btnSimple).setOnClickListener {
             startActivity(Intent(this,SimpleActivity::class.java))
+        }
+        findViewById<Button>(R.id.btnSimpleFling).setOnClickListener {
+            startActivity(Intent(this,SimpleFlingActivity::class.java))
         }
     }
 }
