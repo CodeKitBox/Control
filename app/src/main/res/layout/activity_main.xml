@@ -32,4 +32,17 @@
         android:id="@+id/btnSimpleSmooth"
         android:text="自定义滑动控件支持惯性滑动,平滑"/>
 
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/btnSimpleNestChild"
+        android:text="自定义滑动控件支持惯性滑动,平滑,嵌套滑动，子控件"/>
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/btnSimpleNestParent"
+        android:text="自定义滑动控件支持惯性滑动,平滑，嵌套滑动，父控件"/>
+
+
 </LinearLayout>

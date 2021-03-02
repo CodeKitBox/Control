@@ -31,5 +31,11 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSimpleSmooth).setOnClickListener {
             startActivity(Intent(this,SimpleSmoothActivity::class.java))
         }
+        findViewById<Button>(R.id.btnSimpleNestChild).setOnClickListener {
+            startActivity(Intent(this,SimpleNestedChildActivity::class.java))
+        }
+        findViewById<Button>(R.id.btnSimpleNestParent).setOnClickListener {
+            startActivity(Intent(this,SimpleNestedParentActivity::class.java))
+        }
     }
 }

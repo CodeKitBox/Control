@@ -3,19 +3,31 @@ package com.kits.control.view
 import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.view.VelocityTracker
+import android.view.View
 import android.view.ViewConfiguration
+import android.view.animation.AnimationUtils
 import android.widget.LinearLayout
+import android.widget.Scroller
 import kotlin.math.abs
 import kotlin.math.max
 
 /**
- * 自定义滑动控件
+ * 惯性滑动：手指离开屏幕之后，控件会按照一定的速率继续滑动，优化了滑动的平滑性
+ * 自定义滑动控件,此自定义控件支持惯性滑动
+ * 平滑滑动：在滑动控件中，会有需求通过代码滑动到指定位置，如果使用接口 scrollTo/scrollBy 会有闪屏的现象
+ * 因此这时候就需要使用平滑
+ * 嵌套滑动，支持作为子控件角色和父控件角色
  * 1. 继承 LinearLayout
  * 2. 简单化处理，只处理垂直方向的布局
  * 3. 滑动的方向的前提是以手指的滑动作为参考点
  */
-class MyScrollView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
+class MyScrollNestedView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
     LinearLayout(context, attrs, defStyleAttr){
+
+    companion object{
+        const val ANIMATED_SCROLL_GAP = 250*4
+    }
 
     //<editor-fold desc="基本相关属性">
     private val minFling = ViewConfiguration.get(getContext()).scaledMinimumFlingVelocity
@@ -34,7 +46,16 @@ class MyScrollView @JvmOverloads constructor(context: Context, attrs: AttributeS
     private var scrollRange = 0
     // 标志手指是否在屏幕拖动过程
     private var mIsBeingDragged = false
+
     //</editor-fold>
+
+    //<editor-fold desc="惯性或者平滑滑动相关属性">
+    // 滑动辅助类，在惯性滑动，平滑滑动时使用
+    private val mScroller = Scroller(context)
+    // 速度模拟相关类
+    private var mVelocityTracker: VelocityTracker?= null
+    //</editor-fold>
+    private var mLastScroll: Long = 0
 
     /**
      * LinearLayout 布局对于超过容器尺寸的，不调用子控件的布局接口，因此子类重写
@@ -105,7 +126,6 @@ class MyScrollView @JvmOverloads constructor(context: Context, attrs: AttributeS
      *         false 事件通过系统分发到子控件 及其 控件本身的 onTouchEvent
      */
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-
         // 判断是否拦截事件的标准 ： 如果是滑动事件在自定义的控件中处理
         val action = ev.action
         if (action == MotionEvent.ACTION_MOVE && mIsBeingDragged) {
@@ -115,6 +135,10 @@ class MyScrollView @JvmOverloads constructor(context: Context, attrs: AttributeS
         val vtev = MotionEvent.obtain(ev)
         when(vtev.actionMasked){
             MotionEvent.ACTION_DOWN->{
+                // 点击需要停止惯性滑动
+                if(mScroller.isFinished){
+                    mScroller.abortAnimation()
+                }
                 // 设置为非拖动状态
                 mIsBeingDragged = false
                 // 记录触摸点坐标
@@ -139,16 +163,22 @@ class MyScrollView @JvmOverloads constructor(context: Context, attrs: AttributeS
     /**
      * @param event 触摸事件
      * 1. 当控件本身的 onInterceptTouchEvent 函数位返回值是调用这个函数，
-     * 2. 当控件内的子控件不消费事件的时候，调用 onTouchEvent 来消费。
-     * 本控件最重要的功能是支持滑动，因此在onTouchEvent 函数中只处理了滑动事件，没有调用父类来处理点击事件
+     * 2. 当控件内的子控件不消费事件的时候，调用 onTouchEvent 来消费
      * @return true 消费次事件，触摸事件不在分发给其他控件
      */
     override fun onTouchEvent(event: MotionEvent): Boolean {
         println("onTouchEvent")
         // 这里的 主要也是处理滑动事件，点击事件由系统处理
         val vtev = MotionEvent.obtain(event)
+        // 初始化速度控制器
+        initVelocityTrackerIfNotExists()
         when(vtev.actionMasked){
             MotionEvent.ACTION_DOWN->{
+                // 点击需要停止惯性滑动
+                if(mScroller.isFinished){
+                    mScroller.abortAnimation()
+                    recycleVelocityTracker()
+                }
                 // 设置为非拖动状态
                 mIsBeingDragged = false
                 // 记录触摸点坐标
@@ -178,25 +208,108 @@ class MyScrollView @JvmOverloads constructor(context: Context, attrs: AttributeS
                 }
             }
             MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->{
+                // 开始惯性滑动
+                if(mIsBeingDragged){
+                    mVelocityTracker?.let {
+                        it.computeCurrentVelocity(1000)
+                        // 判断是否支持惯性滑动，参考系统源码
+                        println("惯性滑动 ${it.xVelocity};${it.xVelocity}; minFling =$minFling")
+                        // 惯性滑动的速度大于系统最小的惯性滑动速度，执行惯性滑动
+                        if(abs(it.yVelocity) > minFling){
+                            val velocityY = -(it.yVelocity.toInt())
+                            // 判断是否可以滑动
+                            val canFling = (scrollY > 0 || velocityY > 0) &&
+                                    (scrollY < getScrollRange() || velocityY < 0)
+                            println("canFling == $canFling")
+                            /**
+                             * 参数 startX， startY 起始的滑动距离
+                             * 参数 velocityX velocityY 滑动的速度
+                             * 参数  minX minY  最小的滑动距离
+                             * 参数  maxX maxY 最大的滑动就离
+                             */
+                            if(canFling){
+                                mScroller.fling(0,scrollY,
+                                        0,velocityY, 0,0, minFling, getScrollRange())
+                                // 通知界面刷新 在onDraw 的时候调用 computeScroll 方法
+                                invalidate()
+                            }
+                        }
+                    }
+                }
                 // 设置为非拖动状态
                 mIsBeingDragged = false
                 // 记录触摸点坐标
                 saveLocation(event.x.toInt(),event.y.toInt())
+                recycleVelocityTracker()
             }
         }
-
+        // 速度控制器添加事件
+        mVelocityTracker?.addMovement(vtev)
         vtev.recycle()
         return true
     }
 
-    override fun onOverScrolled(scrollX: Int, scrollY: Int, clampedX: Boolean, clampedY: Boolean) {
-        println("onOverScrolled == $scrollX;$scrollY;$clampedX;$clampedY")
-        // 在ScrollView 中对  clampedX == true clampedY == true 进行了处理
-        // 滑动到指定坐标
-        super.scrollTo(scrollX, scrollY)
 
+    override fun onOverScrolled(scrollX: Int, scrollY: Int, clampedX: Boolean, clampedY: Boolean) {
+        println("onOverScrolled == $scrollX;$scrollY;$clampedX;$clampedY; Scroller.isFinished = ${mScroller.isFinished}")
+        // Treat animating scrolls differently; see #computeScroll() for why.
+        if (!mScroller.isFinished) {
+            // 在Fling 的时候调用这里
+            // 这里执行的是
+            val oldX: Int = getScrollX()
+            val oldY: Int = getScrollY()
+            // 这里调用的是滑动
+            setScrollX(scrollX)
+            setScrollY(scrollY)
+            onScrollChanged(getScrollX(), getScrollY(), oldX, oldY)
+        } else {
+            super.scrollTo(scrollX, scrollY)
+        }
+    }
+
+    override fun computeScroll() {
+        println("===computeScroll===")
+        val ret = mScroller.computeScrollOffset()
+        println("computeScroll == $ret")
+        if(ret){
+            val oldX: Int = scrollX
+            val oldY: Int = scrollY
+            val x = mScroller.currX
+            val y = mScroller.currY
+
+            if (oldX != x || oldY != y) {
+                val range = getScrollRange()
+                overScrollBy(x - oldX, y - oldY, oldX, oldY, 0, range,
+                        0, mOverflingDistance, false)
+                onScrollChanged(scrollX, scrollY, oldX, oldY)
+
+            }
+            // 通知界面刷新
+            postInvalidate()
+            return
+        }
+       // 已经滑动完成
+        saveLocation(mScroller.finalX,mScroller.finalY)
     }
     //<editor-fold desc="私有方法">
+    /**
+     * 初始化速度控制器相关类
+     */
+    private fun initVelocityTrackerIfNotExists() {
+        if (mVelocityTracker == null) {
+            mVelocityTracker = VelocityTracker.obtain()
+        }
+    }
+
+    /**
+     * 回收速度控制器
+     */
+    private fun recycleVelocityTracker() {
+        if (mVelocityTracker != null) {
+            mVelocityTracker?.recycle()
+            mVelocityTracker = null
+        }
+    }
     /**
      * 计算Y轴的偏移
      * 计算公式： 上一个点的坐标 键 当前坐标
@@ -215,5 +328,55 @@ class MyScrollView @JvmOverloads constructor(context: Context, attrs: AttributeS
         touchX = curX
         touchY = curY
     }
+
+    /**
+     * @return 返回滑动范围
+     */
+    private fun getScrollRange():Int{
+        return scrollRange
+    }
     //</editor-fold>
+
+
+    //<editor-fold desc="公共接口">
+    /**
+     * Like [View.scrollBy], but scroll smoothly instead of immediately.
+     *
+     * @param dx the number of pixels to scroll by on the X axis
+     * @param dy the number of pixels to scroll by on the Y axis
+     */
+    fun smoothScrollBy(dx: Int, dy: Int) {
+        var dy = dy
+        if (childCount == 0) {
+            // Nothing to do.
+            return
+        }
+        val duration: Long = AnimationUtils.currentAnimationTimeMillis() - mLastScroll
+        if (duration >ANIMATED_SCROLL_GAP) {
+            val maxY = getScrollRange()
+            val scrollY: Int = scrollY
+            dy = Math.max(0, Math.min(scrollY + dy, maxY)) - scrollY
+            mScroller.startScroll(scrollY, scrollY, 0, dy,ANIMATED_SCROLL_GAP)
+            postInvalidateOnAnimation()
+        } else {
+            if (!mScroller.isFinished) {
+                mScroller.abortAnimation()
+            }
+            scrollBy(dx, dy)
+        }
+        mLastScroll = AnimationUtils.currentAnimationTimeMillis()
+    }
+
+    /**
+     * Like [.scrollTo], but scroll smoothly instead of immediately.
+     *
+     * @param x the position where to scroll on the X axis
+     * @param y the position where to scroll on the Y axis
+     */
+    fun smoothScrollTo(x: Int, y: Int) {
+        smoothScrollBy(x - scrollX, y - scrollY)
+    }
+    //</editor-fold>
+
+
 }

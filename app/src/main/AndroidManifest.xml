@@ -20,6 +20,8 @@
         <activity android:name=".SimpleActivity"/>
         <activity android:name=".SimpleFlingActivity"/>
         <activity android:name=".SimpleSmoothActivity"/>
+        <activity android:name=".SimpleNestedChildActivity"/>
+        <activity android:name=".SimpleNestedParentActivity"/>
     </application>
 
 </manifest>
