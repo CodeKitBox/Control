@@ -26,4 +26,10 @@
         android:id="@+id/btnSimpleFling"
         android:text="自定义滑动控件支持惯性滑动"/>
 
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/btnSimpleSmooth"
+        android:text="自定义滑动控件支持惯性滑动,平滑"/>
+
 </LinearLayout>

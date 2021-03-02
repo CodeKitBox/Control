@@ -19,6 +19,7 @@
         <activity android:name=".TestScrollViewActivity"/>
         <activity android:name=".SimpleActivity"/>
         <activity android:name=".SimpleFlingActivity"/>
+        <activity android:name=".SimpleSmoothActivity"/>
     </application>
 
 </manifest>

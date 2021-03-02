@@ -27,5 +27,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnSimpleFling).setOnClickListener {
             startActivity(Intent(this,SimpleFlingActivity::class.java))
         }
+
+        findViewById<Button>(R.id.btnSimpleSmooth).setOnClickListener {
+            startActivity(Intent(this,SimpleSmoothActivity::class.java))
+        }
     }
 }
