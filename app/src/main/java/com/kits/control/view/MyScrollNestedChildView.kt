@@ -11,6 +11,8 @@ import android.view.animation.AnimationUtils
 import android.widget.LinearLayout
 import android.widget.Scroller
 import androidx.annotation.RequiresApi
+import androidx.core.view.NestedScrollingChild
+import androidx.core.view.NestedScrollingChildHelper
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -23,6 +25,7 @@ import kotlin.math.max
  * 1. 继承 LinearLayout
  * 2. 简单化处理，只处理垂直方向的布局
  * 3. 滑动的方向的前提是以手指的滑动作为参考点
+ * 4. 内嵌滑动View本身的方法 和 实现 NestedScrollingChild
  */
 class MyScrollNestedChildView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyleAttr: Int = 0) :
     LinearLayout(context, attrs, defStyleAttr){
@@ -442,6 +445,107 @@ class MyScrollNestedChildView @JvmOverloads constructor(context: Context, attrs:
      */
     fun smoothScrollTo(x: Int, y: Int) {
         smoothScrollBy(x - scrollX, y - scrollY)
+    }
+    //</editor-fold>
+
+    /*******
+     *  NestedScrollingChild NestedScrollingChildHelper 和 View本身的区别
+     *  1. View 实现了 NestedScrollingChild 所有接口，且实现方法和  NestedScrollingChildHelper 是一样的
+     *  2. 通过View 本身的方法来实现比较简单，可以针对想要修改的方法进行重写，而不需要实现NestedScrollingChild 的所有方法
+     */
+    //<editor-fold desc="View自身的方法和通过接口实现的区别和联系">
+    class MyNestedScrollingChild(view:View) : NestedScrollingChild {
+        private val  childHelper = NestedScrollingChildHelper(view)
+
+        /**
+         * 判断是否有父控件支持内嵌滑动
+         * View 也有相应的接口，通过View的属性 mNestedScrollingParent 来判断
+         * @return true 有支持嵌套滑动的父控件
+         */
+        override fun hasNestedScrollingParent(): Boolean {
+            return childHelper.hasNestedScrollingParent()
+        }
+
+        /**
+         * 设置 控件本身是否支持内嵌滑动
+         */
+        override fun setNestedScrollingEnabled(enabled: Boolean) {
+           childHelper.isNestedScrollingEnabled = enabled
+        }
+        /**
+         * 判断控件是否支持内嵌滑动，
+         * View 通过接口setNestedScrollingEnabled 来设置，同时也有接口来获取
+         * @return控件本身是否支持嵌套滑动
+         */
+        override fun isNestedScrollingEnabled(): Boolean {
+            return childHelper.isNestedScrollingEnabled
+
+        }
+
+        /**
+         * 通知父控件开始内嵌滑动
+         * View 的实现和  NestedScrollingChildHelper 的实现逻辑是一样的
+         * @param axes 滑动方向
+         * @return 父控件是否支持此方向的内嵌滑动
+         */
+        override fun startNestedScroll(axes: Int): Boolean {
+            return childHelper.startNestedScroll(axes)
+        }
+
+        /**
+         * 在子控件滑动之前,通知给父控件，由父控件决定是否消费滑动距离。本质是调用嵌套滑动的父控件的onNestedPreScroll接口。
+         * View的实现和 NestedScrollingChildHelper 是一样的
+         * @param dx 子控件在 x 轴方向的滑动距离
+         * @param dy 子控件在 y 轴方向的滑动距离
+         * @param consumed 数组 父控件消费的距离，索引0 表示的X轴；索引1 表示的是y轴
+         * @param offsetInWindow 获取父控件的偏移
+         * @return true 父控件需要消费此偏移，false 父控件不消费项偏移
+         */
+        override fun dispatchNestedPreScroll(dx: Int, dy: Int, consumed: IntArray?, offsetInWindow: IntArray?): Boolean {
+            return childHelper.dispatchNestedPreScroll(dx, dy, consumed, offsetInWindow)
+        }
+
+        /**
+         * 在子控件滑动之后，通知父控件是否需要消费剩余的移动距离。View的实现和 NestedScrollingChildHelper 是一样的
+         * @param dxConsumed 子控件消费X轴的滑动距离
+         * @param dyConsumed 子控件消费Y轴的滑动距离
+         * @param dxUnconsumed 未消费的X轴滑动距离
+         * @param dyUnconsumed 未消费的Y轴滑动距离
+         * @param offsetInWindow 偏移量
+         * @return true 父控件消费了剩余的距离
+         */
+        override fun dispatchNestedScroll(dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int, offsetInWindow: IntArray?): Boolean {
+            return childHelper.dispatchNestedScroll(dxConsumed,dyConsumed, dxUnconsumed, dyUnconsumed, offsetInWindow)
+        }
+
+        /**
+         * 在子控件开始惯性滑动前判断父控件是否完全消费惯性滑动距离
+         * @param velocityX X 轴的速度
+         * @param velocityY y 轴的速度
+         * @return true 父控件消费完全惯性滑动距离，子控件不需要进行惯性滑动
+         * false 父控件不消费惯性滑动，或者不完全消费惯性滑动，需要 dispatchNestedFling 传入滑动距离
+         */
+
+        override fun dispatchNestedPreFling(velocityX: Float, velocityY: Float): Boolean {
+            return childHelper.dispatchNestedPreFling(velocityX, velocityY)
+        }
+
+        /**
+         * 当 dispatchNestedPreFling 返回未false时调用
+         * 通过系统源码，调用  dispatchNestedFling 和 子控件进行惯性滑动时一起的，说明如果进行惯性滑动
+         * 父控件和子控件时一起滑动的。无法实现子控件滑动一段距离之后父控件再滑动一段距离
+         */
+        override fun dispatchNestedFling(velocityX: Float, velocityY: Float, consumed: Boolean): Boolean {
+            return childHelper.dispatchNestedFling(velocityX, velocityY, consumed)
+        }
+
+        /**
+         * 停止内嵌滑动
+         */
+        override fun stopNestedScroll() {
+            return childHelper.stopNestedScroll()
+        }
+
     }
     //</editor-fold>
 
