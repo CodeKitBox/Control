@@ -21,7 +21,10 @@
         <activity android:name=".SimpleFlingActivity"/>
         <activity android:name=".SimpleSmoothActivity"/>
         <activity android:name=".SimpleNestedChildActivity"/>
-        <activity android:name=".SimpleNestedParentActivity"/>
+        <activity android:name=".SimpleNestedActivity"/>
+        <activity android:name=".NestedActivity"/>
+        <activity android:name=".SystemNestedActivity"/>
+        <activity android:name=".NestedViewActivity"/>
     </application>
 
 </manifest>

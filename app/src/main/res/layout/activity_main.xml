@@ -41,6 +41,12 @@
     <Button
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:id="@+id/btnSystemNestChild"
+        android:text="系统的内嵌滑动"/>
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:id="@+id/btnSimpleNestParent"
         android:text="自定义滑动控件支持惯性滑动,平滑，嵌套滑动，父控件"/>
 

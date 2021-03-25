@@ -35,7 +35,11 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this,SimpleNestedChildActivity::class.java))
         }
         findViewById<Button>(R.id.btnSimpleNestParent).setOnClickListener {
-            startActivity(Intent(this,SimpleNestedParentActivity::class.java))
+            startActivity(Intent(this,NestedViewActivity::class.java))
+            //startActivity(Intent(this,NestedActivity::class.java))
+        }
+        findViewById<Button>(R.id.btnSystemNestChild).setOnClickListener {
+            startActivity(Intent(this,SystemNestedActivity::class.java))
         }
     }
 }
